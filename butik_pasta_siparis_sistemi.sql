@@ -672,11 +672,12 @@ DELIMITER ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
 CREATE DEFINER=`root`@`localhost` PROCEDURE `PastaGuncelle`(
-    IN p_Pasta_id INT,
+     IN p_Pasta_id INT,
     IN p_Kategori_id INT,
     IN p_PastaAdi VARCHAR(100),
     IN p_Aciklama VARCHAR(255),
     IN p_Fiyat DECIMAL(10,2),
+    IN p_Stok INT,
     IN p_MevcutMu BOOLEAN
 )
 BEGIN
@@ -685,6 +686,7 @@ BEGIN
         PastaAdi=p_PastaAdi,
         Aciklama=p_Aciklama,
         Fiyat=p_Fiyat,
+        Stok=p_Stok,
         MevcutMu=p_MevcutMu
     WHERE Pasta_id=p_Pasta_id;
 END ;;
