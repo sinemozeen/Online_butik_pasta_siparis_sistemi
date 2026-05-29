@@ -14,19 +14,17 @@ $hata = "";
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ekle'])) {
     $resim = 'default.jpg';
 
-if(isset($_FILES['resim']) && $_FILES['resim']['error'] === 0) {
-    $uzanti = pathinfo($_FILES['resim']['name'], PATHINFO_EXTENSION);
-    $yeniIsim = uniqid('pasta_') . '.' . $uzanti;
-    $hedef = __DIR__ . '/../img/' . $yeniIsim;
-    
-    if(move_uploaded_file($_FILES['resim']['tmp_name'], $hedef)) {
-        $resim = $yeniIsim;
-    } else {
-        $hata = "Resim yüklenemedi! Hedef: " . $hedef;
+    if(isset($_FILES['resim']) && $_FILES['resim']['error'] === 0) {
+        $uzanti = pathinfo($_FILES['resim']['name'], PATHINFO_EXTENSION);
+        $yeniIsim = uniqid('pasta_') . '.' . $uzanti;
+        $hedef = __DIR__ . '/../img/' . $yeniIsim;
+        if(move_uploaded_file($_FILES['resim']['tmp_name'], $hedef)) {
+            $resim = $yeniIsim;
+        } else {
+            $hata = "Resim yüklenemedi!";
+        }
     }
-}
 
-    
     $stmt = $pdo->prepare("CALL PastaEkle(?, ?, ?, ?, 1)");
     $stmt->execute([
         (int)$_POST['kategori_id'],
@@ -34,10 +32,11 @@ if(isset($_FILES['resim']) && $_FILES['resim']['error'] === 0) {
         htmlspecialchars(trim($_POST['aciklama'])),
         (float)$_POST['fiyat']
     ]);
-    
-    $stmt2 = $pdo->prepare("UPDATE Pasta SET Resim = ? WHERE Pasta_id = LAST_INSERT_ID()");
-    $stmt2->execute([$resim]);
-    
+    $stmt->closeCursor();
+
+    $stmt2 = $pdo->prepare("UPDATE Pasta SET Resim = ?, Stok = ? WHERE Pasta_id = LAST_INSERT_ID()");
+    $stmt2->execute([$resim, (int)$_POST['stok']]);
+
     $mesaj = "Ürün eklendi.";
 }
 
@@ -50,13 +49,14 @@ if(isset($_GET['sil'])) {
 
 
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guncelle'])) {
-    $stmt = $pdo->prepare("CALL PastaGuncelle(?, ?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("CALL PastaGuncelle(?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         (int)$_POST['pasta_id'],
         (int)$_POST['kategori_id'],
         htmlspecialchars(trim($_POST['pasta_adi'])),
         htmlspecialchars(trim($_POST['aciklama'])),
         (float)$_POST['fiyat'],
+        (int)$_POST['stok'],
         isset($_POST['mevcutmu']) ? 1 : 0
     ]);
     $mesaj = "Ürün güncellendi.";
@@ -70,7 +70,7 @@ $kategoriler = kategorileri_listele();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ürün Yönetimi - Admin</title>
+    <title>Ürün Yönetimi - Markiz Pastanesi</title>
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -99,7 +99,6 @@ $kategoriler = kategorileri_listele();
         <div class="alert alert-hata"><?= $hata ?></div>
     <?php endif; ?>
 
-    
     <div class="form-kart">
         <h3>Yeni Ürün Ekle</h3>
         <form method="POST" action="urunler.php" enctype="multipart/form-data">
@@ -127,6 +126,10 @@ $kategoriler = kategorileri_listele();
                     <input type="number" name="fiyat" step="0.01" min="0" placeholder="0.00" required>
                 </div>
                 <div class="form-grup">
+                    <label>Stok</label>
+                    <input type="number" name="stok" min="0" placeholder="Stok adedi" required>
+                </div>
+                <div class="form-grup">
                     <label>Ürün Resmi</label>
                     <input type="file" name="resim" accept="image/*">
                 </div>
@@ -135,7 +138,7 @@ $kategoriler = kategorileri_listele();
         </form>
     </div>
 
-    
+  
     <div class="form-kart">
         <h3>Mevcut Ürünler</h3>
         <table class="admin-tablo">
@@ -146,6 +149,7 @@ $kategoriler = kategorileri_listele();
                     <th>Pasta Adı</th>
                     <th>Açıklama</th>
                     <th>Fiyat</th>
+                    <th>Stok</th>
                     <th>Mevcut</th>
                     <th>İşlem</th>
                     <th>Sil</th>
@@ -156,11 +160,14 @@ $kategoriler = kategorileri_listele();
                 <tr>
                     <form method="POST" action="urunler.php">
                     <input type="hidden" name="pasta_id" value="<?= $pasta['Pasta_id'] ?>">
+                    <input type="hidden" name="kategori_id" value="<?= $pasta['Kategori_id'] ?>">
                     <td><?= $pasta['Pasta_id'] ?></td>
                     <td>
                         <?php if(!empty($pasta['Resim']) && $pasta['Resim'] !== 'default.jpg'): ?>
                             <img src="../img/<?= htmlspecialchars($pasta['Resim']) ?>"
                                  style="width:50px; height:50px; object-fit:cover; border-radius:6px;">
+                        <?php else: ?>
+                            —
                         <?php endif; ?>
                     </td>
                     <td>
@@ -179,7 +186,11 @@ $kategoriler = kategorileri_listele();
                                class="tablo-input kisa">
                     </td>
                     <td>
-                        <input type="hidden" name="kategori_id" value="<?= $pasta['Kategori_id'] ?>">
+                        <input type="number" name="stok"
+                               value="<?= $pasta['Stok'] ?>"
+                               class="tablo-input kisa">
+                    </td>
+                    <td>
                         <input type="checkbox" name="mevcutmu" <?= $pasta['MevcutMu'] ? 'checked' : '' ?>>
                     </td>
                     <td>
